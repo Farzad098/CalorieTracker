@@ -3,17 +3,16 @@ from datetime import datetime
 
 # Function to create the SQLite table if it doesn't exist
 def create_table():
-    conn = sqlite3.connect('calories.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS calorie_intake (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT NOT NULL,
-                food TEXT NOT NULL,
-                quantity INTEGER NOT NULL,
-                calories INTEGER NOT NULL
-            )''')
-    conn.commit()
-    conn.close()
+    with sqlite3.connect('calories.db') as conn:
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS calorie_intake (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT NOT NULL,
+                    food TEXT NOT NULL,
+                    quantity INTEGER,
+                    calories INTEGER NOT NULL
+                )''')
+        conn.commit()
 
 # Function to get the calories for a specific food item
 def get_calories(food):
@@ -33,7 +32,7 @@ def get_calories(food):
             if calories_per_unit < 0:
                 print("Calories cannot be negative. Please try again.")
             else:
-                return quantity * calories_per_unit
+                return quantity * calories_per_unit, quantity
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -46,10 +45,7 @@ def track_calories():
         try:
             date_str = input("Enter the date (DD-MM-YYYY): ")
             date = datetime.strptime(date_str, "%d-%m-%Y").date()
-            if date.year < datetime.now().year:
-                print("Please enter a date from this year onwards.")
-            else:
-                break
+            break
         except ValueError:
             print("Invalid date format. Please enter date in DD-MM-YYYY format.")
     
@@ -58,9 +54,8 @@ def track_calories():
         food = input("Enter food item (or 'done' to finish): ")
         if food.lower() == "done":
             break
-        calories = get_calories(food)
+        calories, quantity = get_calories(food)
         total_calories += calories
-        quantity = None  # You can modify this if you want to track quantity in the database
         calorie_entries.append((date_str, food, quantity, calories))
     
     if calorie_entries:
@@ -71,11 +66,10 @@ def track_calories():
 # Function to save calorie entries to the SQLite database
 def save_to_database(calorie_entries):
     try:
-        conn = sqlite3.connect('calories.db')
-        c = conn.cursor()
-        c.executemany("INSERT INTO calorie_intake (date, food, quantity, calories) VALUES (?, ?, ?, ?)", calorie_entries)
-        conn.commit()
-        conn.close()
+        with sqlite3.connect('calories.db') as conn:
+            c = conn.cursor()
+            c.executemany("INSERT INTO calorie_intake (date, food, quantity, calories) VALUES (?, ?, ?, ?)", calorie_entries)
+            conn.commit()
         print(f"Successfully saved {len(calorie_entries)} entries to the database.")
     except sqlite3.Error as e:
         print(f"Error occurred: {e}")
